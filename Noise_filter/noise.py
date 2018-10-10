@@ -3,22 +3,12 @@ from sensor_msgs.msg import Imu
 from math import *
 import numpy as np 
 import matplotlib.pyplot as plt
+import random
+from numpy import linalg as LA
+from geometry_msgs.msg import Twist 
 
 
 def kalman(data):
-
-#  global b
-#  global P
-#  global R
-#  global sigma
-#  global I
-#  global count
-#  global count_min
-#  global count_max
-#  global size
-#  global g
-#  global g_correct
-
 
   global K # filter gain
   global K_s # steady state gain
@@ -68,48 +58,28 @@ def kalman(data):
 #    plt.suptitle('Kalman Correction')
 #    plot.show()
     
-  gx = data.angular_velocity.x
-  gy = data.angular_velocity.y
-  gz = data.angular_velocity.z
+  # gx = data.angular_velocity.x
+  # gy = data.angular_velocity.y
+  # gz = data.angular_velocity.z
 
   # rospy.loginfo("I heard %s", gx)
-
-  Q= np.array([[qw,0],[0,qb]], np.float64)
-  R= qn
-  Pk1= np.matmul(np.matmul(F,P),np.transpose(F))+Q
-  K= np.matmul(np.matmul(Pk1,np.transpose(H)),np.inverse(np.matmul(np.multiply(H,Pk1),np.transpose(H))+R))
-  P= np.matmul(np.matmul((I-np.matmul(K,H)),Pk1),np.transpose(I-np.matmul(K,H)))+ np.matmul(np.matmul(K,R),np.transpose(K))
+  Z=data.angular.z
   
-  k1=K.item(0)
-  k2=K.item(1)
+  X= np.matmul(A,X)+np.multiply(np.matmul(B,K),Z)
+  W= np.matmul(e1,X)
+  b= np.matmul(e2,X)
+  print(W)
+  # g[count - count_min] = G 
+  # count+=1
 
-  m=np.array([[k1,k1],[k2,k2]], np.float64)
-  lam,S=eig(m)
-  D=np.diag(lam)
-  lam1=lam.item(0)
-  lam2=lam.item(1)
-
-  Slam1= np.array([[np.exp(-lam1*T),0][0,1]], np.float64)
-  Slam2= np.array([[-(np.exp(-lam1*T)-1)/lam1,0][0,T]], np.float64)
-
-  A= np.matmul(np.matmul(S,Slam1),np.inverse(S))
-  B= np.matmul(np.matmul(S,Slam2),np.inverse(S))
-
-  X= np.multiply(A,X)+np.multiply(np.multiply(B,K),Z)
-  W= np.multiply(e1,X)
-  b= np.multiply(e2,X)
-
-  g[count - count_min] = G 
-  count+=1
-
-  print("bias : [ ", b[0][0]," , ",b[1][0]," , ",b[2][0]," ]")
+  # print("bias : [ ", b[0][0]," , ",b[1][0]," , ",b[2][0]," ]")
   return
 
 
 
 def listener():
   rospy.init_node('listener', anonymous=True)
-  rospy.Subscriber("/imu0", Imu, kalman)
+  rospy.Subscriber("/wsl/enc_left",Twist , kalman)
 
   rospy.spin()
 
@@ -163,8 +133,30 @@ if __name__ == '__main__':
   X = np.zeros((2,1))
   Z = 0
   W = 0
-  b = 0 
+  b = 0
 
+  Q= np.array([[qw,0],[0,qb]], np.float64)
+  R= qn
+
+  for i in range(0,1):
+    Pk1= np.matmul(np.matmul(F,P),np.transpose(F))+Q
+    K= np.matmul(np.matmul(Pk1,np.transpose(H)),np.linalg.inv(np.matmul(np.matmul(H,Pk1),np.transpose(H))+R))
+    P= np.matmul(np.matmul((I-np.matmul(K,H)),Pk1),np.transpose(I-np.matmul(K,H)))+ np.matmul(np.multiply(K,R),np.transpose(K)) 
+    k1=K.item(0)
+  k2=K.item(1)
+
+  m=np.array([[k1,k1],[k2,k2]], np.float64)
+  lam,S=LA.eig(m)
+  D=np.diag(lam)
+  lam1=lam.item(0)
+  lam2=lam.item(1)
+  print(lam)
+  Slam1= np.array([[np.exp(-lam2*T),0],[0,1]], np.float64)
+  Slam2= np.array([[-(np.exp(-lam2*T)-1)/lam2,0],[0,T]], np.float64)
+
+  A= np.matmul(np.matmul(S,Slam1),np.linalg.inv(S))
+  B= np.matmul(np.matmul(S,Slam2),np.linalg.inv(S))
+    print(K)
 #  hz = 2
 #  time_start = 25
 #  time_end = 45 #seconds
@@ -179,6 +171,4 @@ if __name__ == '__main__':
 #  I = np.array([[1.,0.,0.],[0.,1.,0.],[0.,0.,1.]], np.float64) #matrix([[1.,0.,0.],[0.,1.,0.],[0.,0.,1.]])
 
 # count = 0
-
-
   listener()  
