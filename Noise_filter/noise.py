@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import random
 from numpy import linalg as LA
 from geometry_msgs.msg import Twist 
-
+from std_msgs.msg import *
 
 def kalman(data):
 
@@ -14,7 +14,7 @@ def kalman(data):
   global K_s # steady state gain
   global k1
   global k2
-
+  global count
   global m
   global S
   global D
@@ -29,6 +29,8 @@ def kalman(data):
   global X 
   global F # KF coefficient matrix
   global P # estimated covariance
+  global Z_orig
+  global W_cal
 
   global qn
   global qw
@@ -42,35 +44,27 @@ def kalman(data):
   global R # covariance matrix R= qn - variance of white noise
 
   
-
-
-#  if count < count_min:
-#    return
-#  
-#  if count > count_max :  
-#    g_correct = g - np.transpose(b)
-#    plt.subplot(121)
-#    plt.hist(g, bins='auto')
-#    plt.title('Original data')
-#    plt.subplot(122)
-#    plt.hist(g_correct, bins='auto')
-#    plt.title('Corrected data')
-#    plt.suptitle('Kalman Correction')
-#    plot.show()
-    
-  # gx = data.angular_velocity.x
-  # gy = data.angular_velocity.y
-  # gz = data.angular_velocity.z
-
   # rospy.loginfo("I heard %s", gx)
-  Z=data.angular.z
-  
+  Z=data.data #data.angular.z
+  Z_orig[count]=Z
   X= np.matmul(A,X)+np.multiply(np.matmul(B,K),Z)
   W= np.matmul(e1,X)
   b= np.matmul(e2,X)
   print(W)
+  W_cal[count]=W
   # g[count - count_min] = G 
-  # count+=1
+  count+=1
+
+
+  if count > 12000:
+  	plt.subplot(121)
+  	plt.hist(Z_orig, bins='auto')
+  	plt.title('Original data')
+  	plt.subplot(122)
+  	plt.hist(W_cal, bins='auto')
+  	plt.title('Corrected data')
+  	plt.suptitle('Kalman Correction')
+  	plt.show()
 
   # print("bias : [ ", b[0][0]," , ",b[1][0]," , ",b[2][0]," ]")
   return
@@ -79,7 +73,7 @@ def kalman(data):
 
 def listener():
   rospy.init_node('listener', anonymous=True)
-  rospy.Subscriber("/wsl/enc_left",Twist , kalman)
+  rospy.Subscriber("/l_vel",Float32 , kalman)
 
   rospy.spin()
 
@@ -87,7 +81,8 @@ if __name__ == '__main__':
   global K # filter gain
   global k1
   global k2
-
+  global Z_orig
+  global W_cal
   global m
   global S
   global D
@@ -109,20 +104,20 @@ if __name__ == '__main__':
 
   global Pk  #P(k)
   global Pk1 #P(k/k+1)
-
+  global count
   global H # measurement matrix
   global Q # covariance matrix
   global R # covariance matrix R= qn - variance of white noise
 
-
-  F = np.zeros((2,2))
+  count=0
+  F = np.array([[1.,0.],[0.,0.]], np.float64)
   H = np.array([[1.,1.]], np.float64)
   e1 = np.array([[1.,0.]], np.float64)
   e2 = np.array([[0.,1.]], np.float64)
   qn = 0.1667
   qb = 1200
   qw = 1000
-  T = 0.005
+  T = 0.01
   I = np.array([[1.,0.],[0.,1.]], np.float64)
   K = np.array([[1.],[1.]], np.float64)
   P = np.zeros((2,2))
@@ -134,29 +129,31 @@ if __name__ == '__main__':
   Z = 0
   W = 0
   b = 0
+  W_cal=np.zeros((12100,1))
+  Z_orig=np.zeros((12100,1))
 
   Q= np.array([[qw,0],[0,qb]], np.float64)
   R= qn
 
-  for i in range(0,1):
-    Pk1= np.matmul(np.matmul(F,P),np.transpose(F))+Q
-    K= np.matmul(np.matmul(Pk1,np.transpose(H)),np.linalg.inv(np.matmul(np.matmul(H,Pk1),np.transpose(H))+R))
-    P= np.matmul(np.matmul((I-np.matmul(K,H)),Pk1),np.transpose(I-np.matmul(K,H)))+ np.matmul(np.multiply(K,R),np.transpose(K)) 
-    k1=K.item(0)
-  k2=K.item(1)
+  for i in range(0,500):
+  	Pk1= np.matmul(np.matmul(F,P),np.transpose(F))+Q
+  	K= np.matmul(np.matmul(Pk1,np.transpose(H)),np.linalg.inv(np.matmul(np.matmul(H,Pk1),np.transpose(H))+R))
+  	P= np.matmul(np.matmul((I-np.matmul(K,H)),Pk1),np.transpose(I-np.matmul(K,H)))+ np.matmul(np.multiply(K,R),np.transpose(K)) 
+  	k1=K.item(0)
+	k2=K.item(1)
 
-  m=np.array([[k1,k1],[k2,k2]], np.float64)
-  lam,S=LA.eig(m)
-  D=np.diag(lam)
-  lam1=lam.item(0)
-  lam2=lam.item(1)
-  print(lam)
-  Slam1= np.array([[np.exp(-lam2*T),0],[0,1]], np.float64)
-  Slam2= np.array([[-(np.exp(-lam2*T)-1)/lam2,0],[0,T]], np.float64)
+	m=np.array([[k1,k1],[k2,k2]], np.float64)
+	lam,S=LA.eig(m)
+	D=np.diag(lam)
+	lam1=lam.item(0)
+	lam2=lam.item(1)
+	print(lam)
+	Slam1= np.array([[np.exp(-lam1*T),0],[0,1]], np.float64)
+	Slam2= np.array([[-(np.exp(-lam1*T)-1)/lam1,0],[0,T]], np.float64)
 
-  A= np.matmul(np.matmul(S,Slam1),np.linalg.inv(S))
-  B= np.matmul(np.matmul(S,Slam2),np.linalg.inv(S))
-    print(K)
+	A= np.matmul(np.matmul(S,Slam1),np.linalg.inv(S))
+	B= np.matmul(np.matmul(S,Slam2),np.linalg.inv(S))
+  	print(K)
 #  hz = 2
 #  time_start = 25
 #  time_end = 45 #seconds
@@ -172,3 +169,4 @@ if __name__ == '__main__':
 
 # count = 0
   listener()  
+
