@@ -35,7 +35,7 @@ Link for Bag Files (RAW DATA from Gyroscope) :
 
 ## 3.	Using Accelerometer and Gyroscope data and using Kalman Filter	for Odometry using a Wheel Mounted Inertial Sensor
 		
-[Link]https://drive.google.com/file/d/1ByBOscddfkhi3RtzwNHf2j-36tSprxVQ/view?usp=sharing) for the paper 
+[Link](https://drive.google.com/file/d/1ByBOscddfkhi3RtzwNHf2j-36tSprxVQ/view?usp=sharing) for the paper 
 
 		(Yet to be implemented)
 
