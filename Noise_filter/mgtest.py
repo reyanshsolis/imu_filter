@@ -1,5 +1,6 @@
 import rospy
 from sensor_msgs.msg import Imu
+from geometry_msgs.msg import Vector3Stamped
 from math import *
 import numpy as np 
 import matplotlib.pyplot as plt
@@ -7,75 +8,64 @@ import random
 from numpy import linalg as LA
 from geometry_msgs.msg import Twist 
 from std_msgs.msg import *
+import csv
 
-def kalman(data):
+imu_msg = Imu()
+imu_msg.header.frame_id = "/imu"
+mag_msg = Vector3Stamped()
+# def publish_imu(imu_msg):
+  
+    
+  
+#   imu_msg.angular_velocity.x = 0
+#   imu_msg.angular_velocity.y = 0
+#   imu_msg.angular_velocity.z = Z
+#   imu_msg.linear_acceleration.x = 0
+#   imu_msg.linear_acceleration.y = 0
+#   imu_msg.linear_acceleration.z = 0
+#   pub_imu.publish(imu_msg)
 
-  global K # filter gain
-  global K_s # steady state gain
-  global k1
-  global k2
-  global count
-  global m
-  global S
-  global D
-  global lam # eigen values - lamda 1, lamda 2
-  global Slam1
-  global Slam2
-  global A 
-  global B 
-  global W # W- omega - input true angular rate
-  global y # y- measured angular rate | Z = y
-  global b # bias drift # b'=W_b
-  global X 
-  global F # KF coefficient matrix
-  global P # estimated covariance
-  global Z_orig
-  global W_cal
 
-  global qn
-  global qw
-  global qb
+pub = rospy.Publisher('/imu/data_raw', Imu)
+pub2 = rospy.Publisher('/imu/mag', Vector3Stamped)
 
-  global Pk  #P(k)
-  global Pk1 #P(k/k+1)
 
-  global H # measurement matrix
-  global Q # covariance matrix
-  global R # covariance matrix R= qn - variance of white noise
 
   
-  # rospy.loginfo("I heard %s", gx)
-  Z=data.data #data.angular.z
-  Z_orig[count]=Z
-  X= np.matmul(A,X)+np.multiply(np.matmul(B,K),Z)
-  W= np.matmul(e1,X)
-  b= np.matmul(e2,X)
-  print(W)
-  W_cal[count]=W
-  # g[count - count_min] = G 
-  count+=1
+def kalman(data):
 
+  Z=data.data
 
-  if count > 12000:
-  	plt.subplot(121)
-  	plt.hist(Z_orig, bins='auto')
-  	plt.title('Original data')
-  	plt.subplot(122)
-  	plt.hist(W_cal, bins='auto')
-  	plt.title('Corrected data')
-  	plt.suptitle('Kalman Correction')
-  	plt.show()
+  imu_msg.angular_velocity.x = 0
+  imu_msg.angular_velocity.y = 0
+  imu_msg.angular_velocity.z = Z
+  imu_msg.linear_acceleration.x = 0
+  imu_msg.linear_acceleration.y = 0
+  imu_msg.linear_acceleration.z = 0
 
-  # print("bias : [ ", b[0][0]," , ",b[1][0]," , ",b[2][0]," ]")
-  return
-
-
+  mag_msg.vector.x=0
+  mag_msg.vector.y=0
+  mag_msg.vector.z=0
+  pub.publish(imu_msg)
+  pub2.publish(mag_msg)
 
 def listener():
   rospy.init_node('listener', anonymous=True)
   rospy.Subscriber("/l_vel",Float32 , kalman)
 
+  pub.publish((imu_msg))
+  pub2.publish((mag_msg))
   rospy.spin()
+
+
+# def talker():
+#     rospy.init_node('talker', anonymous=True)
+#     pub = rospy.Publisher("/w_cal", Float32, queue_size=1)
+#     rate = rospy.Rate(100) # 10hz 
+#     while not rospy.is_shutdown():
+#       pub.publish(W)   
+#       rate.sleep()
+#     return
 
 if __name__ == '__main__':
   global K # filter gain
@@ -129,8 +119,8 @@ if __name__ == '__main__':
   Z = 0
   W = 0
   b = 0
-  W_cal=np.zeros((12100,1))
-  Z_orig=np.zeros((12100,1))
+  W_cal=np.zeros((20000,1))
+  Z_orig=np.zeros((20000,1))
 
   Q= np.array([[qw,0],[0,qb]], np.float64)
   R= qn
@@ -154,6 +144,12 @@ if __name__ == '__main__':
 	A= np.matmul(np.matmul(S,Slam1),np.linalg.inv(S))
 	B= np.matmul(np.matmul(S,Slam2),np.linalg.inv(S))
   	print(K)
+
+
+    # writer.writerow({'emp_name': 'Erica Meyers', 'dept': 'IT', 'birth_month': 'March'})
+    # with gyrofile:
+  	# 	writer=csv.writer(gyrofile)
+  	# 	writer.writerows(W_cal) 	
 #  hz = 2
 #  time_start = 25
 #  time_end = 45 #seconds
@@ -168,4 +164,7 @@ if __name__ == '__main__':
 #  I = np.array([[1.,0.,0.],[0.,1.,0.],[0.,0.,1.]], np.float64) #matrix([[1.,0.,0.],[0.,1.,0.],[0.,0.,1.]])
 
 # count = 0
-  listener()  
+  try:	
+  	listener() 
+  except rospy.ROSInterruptException:
+    pass 
