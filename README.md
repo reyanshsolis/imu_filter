@@ -1,4 +1,4 @@
-# gyro_filter
+# imu_filter
 # DATA BIAS CORRECTION AND NOISE REMOVAL :
 Applied for Data from IMU_Sensors mounted on wheels for ODOMETRY
 Link for Bag Files (RAW DATA from Gyroscope) : 
